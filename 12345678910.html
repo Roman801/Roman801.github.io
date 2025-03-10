@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Интерактивные российские банкноты</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f0f0f0;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+        }
+
+        .controls {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .magnifier-toggle {
+            padding: 12px 24px;
+            font-size: 16px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .magnifier-toggle.active {
+            background: #45a049;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            transform: translateY(-2px);
+        }
+
+        .banknotes-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 60px;
+            padding: 40px;
+            max-width: 1500px;
+            margin: 0 auto;
+        }
+
+        .flip-card {
+            perspective: 1500px;
+            height: 250px;
+            position: relative;
+            cursor: pointer;
+            transform-style: preserve-3d;
+            margin: 20px;
+        }
+
+        .flip-card-inner {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            transition: transform 0.6s;
+            transform-style: preserve-3d;
+        }
+
+        .flip-card.flipped .flip-card-inner {
+            transform: rotateY(180deg);
+        }
+
+        .flip-card-front, .flip-card-back {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 6px 18px rgba(0,0,0,0.15);
+            transform-style: preserve-3d;
+        }
+
+        .flip-card-back {
+            transform: rotateY(180deg);
+        }
+
+        .banknote-image {
+            width: 100%;
+            height: 180px;
+            object-fit: contain;
+            border-radius: 8px;
+            transition: transform 0.3s;
+            position: relative;
+            z-index: 1;
+        }
+
+        .banknote-title {
+            font-weight: bold;
+            margin: 15px 0;
+            color: #2c3e50;
+            font-size: 1.3em;
+        }
+
+        .description-panel {
+            position: fixed;
+            top: 50%;
+            right: 40px;
+            transform: translateY(-50%);
+            width: 350px;
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+            display: none;
+            z-index: 1001;
+        }
+
+        .description-panel.active {
+            display: block;
+        }
+
+        .close-btn {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            cursor: pointer;
+            font-size: 24px;
+            color: #666;
+        }
+
+        .magnifier-container {
+            position: fixed;
+            width: 200px;
+            height: 200px;
+            border: 3px solid #fff;
+            border-radius: 50%;
+            overflow: hidden;
+            box-shadow: 0 0 20px rgba(0,0,0,0.3);
+            pointer-events: none;
+            display: none;
+            z-index: 9999;
+        }
+
+        .magnifier-image {
+            position: absolute;
+            transform-origin: 0 0;
+        }
+
+        @media (max-width: 768px) {
+            .banknotes-container {
+                grid-template-columns: 1fr;
+                gap: 40px;
+                padding: 20px;
+            }
+            
+            .flip-card {
+                height: 220px;
+                margin: 10px;
+            }
+            
+            .description-panel {
+                width: 90%;
+                right: 5%;
+                bottom: 25px;
+                top: auto;
+                transform: none;
+                padding: 20px;
+            }
+            
+            .magnifier-container {
+                display: none !important;
+            }
+            
+            .magnifier-toggle {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>Современные российские банкноты</h1>
+    <div class="controls">
+        <button class="magnifier-toggle" id="magnifierToggle">Включить лупу</button>
+    </div>
+    <div class="banknotes-container" id="banknotes"></div>
+    <div class="description-panel" id="descriptionPanel">
+        <span class="close-btn" onclick="closeDescription()">×</span>
+        <div id="panelContent"></div>
+    </div>
+    <div class="magnifier-container" id="magnifier">
+        <img class="magnifier-image" id="magnifierImage">
+    </div>
+
+    <script>
+        const banknotesData = [
+            {
+                frontImage: 'https://www.cbr.ru/StaticHtml/File/96682/50r_04_rv.jpg',
+                backImage: 'https://www.cbr.ru/StaticHtml/File/96682/50r_04_av.jpg',
+                title: '50 рублей',
+                frontDescription: 'Лицевая сторона: Санкт-Петербург - Ростральная колонна',
+                backDescription: 'Обратная сторона: Петропавловская крепость'
+            },
+            {
+                frontImage: 'https://www.cbr.ru/StaticHtml/File/96684/100r_04_rv.jpg',
+                backImage: 'https://www.cbr.ru/StaticHtml/File/96684/100r_04_av.jpg',
+                title: '100 рублей',
+                frontDescription: 'Лицевая сторона: Москва - Большой театр',
+                backDescription: 'Обратная сторона: Квадрига Аполлона'
+            },
+            {
+                frontImage: 'https://www.cbr.ru/StaticHtml/File/96658/200r_17_av.jpg',
+                backImage: 'https://www.cbr.ru/StaticHtml/File/96658/200r_17_rv.jpg',
+                title: '200 рублей',
+                frontDescription: 'Лицевая сторона: Памятник затопленным кораблям в Севастополе',
+                backDescription: 'Обратная сторона: Музей-заповедник «Херсонес Таврический»'
+            }
+        ];
+
+        let isMagnifierEnabled = false;
+        let activeImage = null;
+        const magnifier = document.getElementById('magnifier');
+        const magnifierImage = document.getElementById('magnifierImage');
+        const magnifierToggle = document.getElementById('magnifierToggle');
+        const zoomLevel = 2.5;
+
+        function initApp() {
+            const container = document.getElementById('banknotes');
+            
+            banknotesData.forEach(note => {
+                const flipCard = document.createElement('div');
+                flipCard.className = 'flip-card';
+                
+                const flipCardInner = document.createElement('div');
+                flipCardInner.className = 'flip-card-inner';
+                
+                const front = createCardSide(note.frontImage, note.title, note.frontDescription);
+                const back = createCardSide(note.backImage, note.title, note.backDescription);
+                back.className += ' flip-card-back';
+                
+                flipCardInner.appendChild(front);
+                flipCardInner.appendChild(back);
+                flipCard.appendChild(flipCardInner);
+                
+                flipCard.addEventListener('click', function(e) {
+                    if(e.target.classList.contains('banknote-image')) return;
+                    this.classList.toggle('flipped');
+                });
+
+                container.appendChild(flipCard);
+            });
+        }
+
+        function createCardSide(imageSrc, title, description) {
+            const side = document.createElement('div');
+            side.className = 'flip-card-front';
+            
+            const img = document.createElement('img');
+            img.src = imageSrc;
+            img.alt = title;
+            img.className = 'banknote-image';
+            img.dataset.description = description;
+            
+            img.addEventListener('mousemove', handleMouseMove);
+            img.addEventListener('mouseenter', handleMouseEnter);
+            img.addEventListener('mouseleave', handleMouseLeave);
+            
+            img.onclick = (e) => {
+                e.stopPropagation();
+                showDescription(e.target.dataset.description);
+            };
+            
+            const titleElem = document.createElement('div');
+            titleElem.className = 'banknote-title';
+            titleElem.textContent = title;
+            
+            side.appendChild(img);
+            side.appendChild(titleElem);
+            
+            return side;
+        }
+
+        function handleMouseEnter(e) {
+            if (!isMagnifierEnabled) return;
+            activeImage = e.target;
+            magnifier.style.display = 'block';
+            magnifierImage.src = e.target.src;
+        }
+
+        function handleMouseMove(e) {
+            if (!isMagnifierEnabled || !activeImage) return;
+            
+            const rect = activeImage.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            const offsetX = x * (activeImage.naturalWidth / activeImage.offsetWidth);
+            const offsetY = y * (activeImage.naturalHeight / activeImage.offsetHeight);
+            
+            magnifier.style.left = `${e.clientX - 100}px`;
+            magnifier.style.top = `${e.clientY - 100}px`;
+            
+            magnifierImage.style.transform = `
+                translate(${-offsetX * zoomLevel + 100}px, 
+                ${-offsetY * zoomLevel + 100}px) 
+                scale(${zoomLevel})
+            `;
+        }
+
+        function handleMouseLeave() {
+            if (!isMagnifierEnabled) return;
+            activeImage = null;
+            magnifier.style.display = 'none';
+        }
+
+        function toggleMagnifier() {
+            isMagnifierEnabled = !isMagnifierEnabled;
+            magnifierToggle.classList.toggle('active');
+            magnifierToggle.textContent = isMagnifierEnabled 
+                ? 'Выключить лупу' 
+                : 'Включить лупу';
+            
+            if (!isMagnifierEnabled) {
+                magnifier.style.display = 'none';
+                activeImage = null;
+            }
+        }
+
+        function showDescription(text) {
+            const panel = document.getElementById('descriptionPanel');
+            const content = document.getElementById('panelContent');
+            content.textContent = text;
+            panel.classList.add('active');
+        }
+
+        function closeDescription() {
+            document.getElementById('descriptionPanel').classList.remove('active');
+        }
+
+        window.onclick = function(event) {
+            if (event.target.classList.contains('description-panel')) {
+                closeDescription();
+            }
+        }
+
+        magnifierToggle.addEventListener('click', toggleMagnifier);
+        window.onload = initApp;
+    </script>
+</body>
+</html>
